@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>シンプルタイピング</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <h1>シンプルタイピング</h1>
+      <div class="header-actions">
+        <button id="soundToggle" aria-pressed="false" title="サウンド ON/OFF">🔊</button>
+        <button id="openSettings" title="設定">⚙️ 設定</button>
+      </div>
+    </header>
+
+    <div class="timer">
+      <div id="timerBar" class="timer-bar"></div>
+      <div id="timeLabel" class="timer-label" aria-live="polite">15.0s</div>
+    </div>
+
+    <main class="play-area">
+      <div id="word" class="word" aria-live="polite" aria-atomic="true"></div>
+      <div id="pausedHint" class="paused" hidden>一時停止中（クリックで再開）</div>
+      <input id="imeInput" class="ime-input" type="text" inputmode="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-hidden="true" />
+    </main>
+
+    <footer class="status">
+      <div>完了: <span id="completedCount">0</span></div>
+      <div>精度: <span id="accuracy">100.0%</span></div>
+      <div>WPM: <span id="wpm">0.0</span></div>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <button id="startBtn" class="primary">スタート（Enter）</button>
+        <button id="skipBtn" title="この単語をスキップ">スキップ</button>
+      </div>
+    </footer>
+
+    <dialog id="settingsDialog">
+      <form method="dialog" id="settingsForm">
+        <h2>設定</h2>
+        <label>
+          制限時間（秒）
+          <input type="number" id="setDuration" min="5" max="120" step="1" />
+        </label>
+        <label>
+          大文字小文字を区別
+          <input type="checkbox" id="setCaseSensitive" />
+        </label>
+        <label>
+          ミス処理モード
+          <select id="setMistakeMode">
+            <option value="strict">修正必須</option>
+            <option value="lenient">寛容</option>
+          </select>
+        </label>
+        <label>
+          フォーカス外れで一時停止
+          <input type="checkbox" id="setPauseOnBlur" />
+        </label>
+        <fieldset>
+          <legend>サウンド</legend>
+          <label>
+            有効
+            <input type="checkbox" id="setSoundEnabled" />
+          </label>
+          <label>
+            音量
+            <input type="range" id="setSoundVolume" min="0" max="1" step="0.01" />
+          </label>
+        </fieldset>
+
+        <hr />
+        <div class="import">
+          <label for="importWords" class="button-like">単語リストを読み込む（.txt）</label>
+          <input type="file" id="importWords" accept="text/plain" hidden />
+          <small>1行に1単語、空行・#始まりは無視</small>
+        </div>
+
+        <menu>
+          <button value="cancel">閉じる</button>
+          <button id="saveSettings" value="default" class="primary">保存</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <dialog id="resultDialog">
+      <div class="result">
+        <h2>結果</h2>
+        <div class="rows">
+          <div>完了単語数: <span id="rCompleted">0</span></div>
+          <div>精度: <span id="rAccuracy">0%</span></div>
+          <div>WPM: <span id="rWpm">0.0</span></div>
+          <div>自己ベスト: <span id="rBest">0</span></div>
+        </div>
+        <menu>
+          <button id="playAgain" class="primary">もう一度</button>
+          <button id="openImportFromResult">単語をインポート</button>
+          <button id="closeResult">閉じる</button>
+        </menu>
+      </div>
+    </dialog>
+
+    <input type="file" id="hiddenImport" accept="text/plain" hidden />
+
+    <script src="main.js"></script>
+  </body>
+  </html>
