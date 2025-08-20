@@ -30,13 +30,24 @@
     openImportFromResult: document.getElementById('openImportFromResult'),
     imeInput: document.getElementById('imeInput'),
     skipBtn: document.getElementById('skipBtn'),
+    fxCanvas: document.getElementById('fxCanvas'),
+    // inline highscores
+    hsInline1: document.getElementById('hsInline1'),
+    hsInline2: document.getElementById('hsInline2'),
+    hsInline3: document.getElementById('hsInline3'),
+    // highscores (result dialog)
+    hs1: document.getElementById('hs1'),
+    hs2: document.getElementById('hs2'),
+    hs3: document.getElementById('hs3'),
+    highscoresList: document.getElementById('highscoresList'),
   };
 
   const STORAGE_SETTINGS = 'typingGame:settings';
   const STORAGE_BEST = 'typingGame:bestCompleted';
+  const STORAGE_SCORES = 'typingGame:scoresV1';
 
   const defaults = {
-    durationSeconds: 15,
+    durationSeconds: 30,
     caseSensitive: true,
     mistakeMode: 'strict', // 'strict' | 'lenient'
     sound: { enabled: true, volume: 0.3 },
@@ -66,23 +77,120 @@
     lastVowel: null,
   };
 
+  // Simple confetti ("花吹雪") effect
+  const fx = { ctx: null, canvas: null, running: false, particles: [], until: 0 };
+  function initFx() {
+    fx.canvas = els.fxCanvas;
+    if (!fx.canvas) return;
+    fx.ctx = fx.canvas.getContext('2d');
+    function resize() {
+      const dpr = window.devicePixelRatio || 1;
+      const w = Math.floor(window.innerWidth * dpr);
+      const h = Math.floor(window.innerHeight * dpr);
+      if (fx.canvas.width !== w || fx.canvas.height !== h) {
+        fx.canvas.width = w; fx.canvas.height = h;
+      }
+    }
+    resize();
+    window.addEventListener('resize', resize);
+  }
+  function confettiBurst(options={}) {
+    if (!fx.ctx) return;
+    const dpr = window.devicePixelRatio || 1;
+    const W = fx.canvas.width, H = fx.canvas.height;
+    const duration = Math.max(800, Math.min(5000, options.duration || 2000));
+    const count = Math.max(40, Math.min(400, options.count || 160));
+    const colors = ['#ffb7c5','#ffd1dc','#ffffff','#fce4ec','#ffc0cb'];
+    const now = performance.now();
+    fx.until = now + duration;
+    fx.particles = [];
+    for (let i = 0; i < count; i++) {
+      const x = Math.random() * W;
+      const y = -Math.random() * (H * 0.2);
+      const angle = (Math.random() * 60 - 30) * Math.PI/180;
+      const speed = (Math.random() * 2 + 2) * dpr * 60/60; // px/frame at 60fps
+      const vx = Math.cos(angle) * speed;
+      const vy = Math.sin(angle) * speed + 2 * dpr;
+      fx.particles.push({
+        x, y, vx, vy,
+        w: (6 + Math.random()*8) * dpr,
+        h: (10 + Math.random()*14) * dpr,
+        r: Math.random()*Math.PI,
+        rv: (Math.random()*0.2 - 0.1),
+        color: colors[(Math.random()*colors.length)|0],
+        sway: (Math.random()*0.6+0.2) * dpr,
+        swayPhase: Math.random()*Math.PI*2,
+      });
+    }
+    if (!fx.running) {
+      fx.running = true;
+      requestAnimationFrame(tickFx);
+    }
+  }
+  function tickFx(ts) {
+    if (!fx.ctx) { fx.running = false; return; }
+    const ctx = fx.ctx; const W = fx.canvas.width, H = fx.canvas.height;
+    ctx.clearRect(0,0,W,H);
+    const wind = Math.sin(ts/700) * 0.3 * (window.devicePixelRatio||1);
+    fx.particles.forEach(p => {
+      p.swayPhase += 0.1;
+      p.x += p.vx + Math.sin(p.swayPhase) * p.sway + wind;
+      p.y += p.vy;
+      p.vy += 0.08 * (window.devicePixelRatio||1); // gravity
+      p.r += p.rv;
+    });
+    // draw
+    for (const p of fx.particles) {
+      if (p.y > H + 40) continue;
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.r);
+      ctx.fillStyle = p.color;
+      ctx.globalAlpha = 0.9;
+      ctx.beginPath();
+      // petal-like rounded rect
+      const w = p.w, h = p.h, r = Math.min(w,h)*0.3;
+      ctx.moveTo(-w/2 + r, -h/2);
+      ctx.arcTo(w/2, -h/2, w/2, h/2, r);
+      ctx.arcTo(w/2, h/2, -w/2, h/2, r);
+      ctx.arcTo(-w/2, h/2, -w/2, -h/2, r);
+      ctx.arcTo(-w/2, -h/2, w/2, -h/2, r);
+      ctx.fill();
+      ctx.restore();
+    }
+    // continue or stop
+    const now = performance.now();
+    if (now < fx.until && fx.particles.some(p => p.y <= H + 40)) {
+      requestAnimationFrame(tickFx);
+    } else {
+      fx.running = false; fx.particles = []; ctx.clearRect(0,0,W,H);
+    }
+  }
+
   // Simple audio using WebAudio (no external files needed)
   let audioCtx = null;
   function beep(freq = 440, ms = 80, type = 'sine', gain = 0.1) {
     if (!settings.sound.enabled) return;
     try {
       if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') { audioCtx.resume().catch(()=>{}); }
       const o = audioCtx.createOscillator();
       const g = audioCtx.createGain();
       o.type = type; o.frequency.value = freq;
-      g.gain.value = Math.max(0, Math.min(1, settings.sound.volume)) * gain;
+      const vol = Math.max(0, Math.min(1, settings.sound.volume)) * gain;
+      const now = audioCtx.currentTime;
+      const stopAt = now + (ms / 1000);
+      g.gain.setValueAtTime(0.0001, now);
+      g.gain.linearRampToValueAtTime(vol, now + 0.005);
+      g.gain.linearRampToValueAtTime(0.0001, Math.max(now + 0.006, stopAt - 0.005));
       o.connect(g); g.connect(audioCtx.destination);
-      o.start();
-      setTimeout(() => { o.stop(); o.disconnect(); g.disconnect(); }, ms);
+      o.start(now);
+      o.stop(stopAt);
+      o.onended = () => { try { o.disconnect(); g.disconnect(); } catch (_) { /* ignore */ } };
     } catch (_) { /* ignore */ }
   }
   const sfx = {
-    success: () => beep(880, 100, 'triangle', 0.6),
+    success: () => beep(880, 40, 'sine', 0.5),
     error: () => beep(220, 120, 'square', 0.7),
     tick: () => beep(600, 40, 'sine', 0.4),
   };
@@ -95,6 +203,49 @@
       const s = localStorage.getItem(STORAGE_SETTINGS);
       if (s) settings = { ...defaults, ...JSON.parse(s) };
     } catch (_) { /* ignore */ }
+  }
+
+  // High score storage and rendering
+  function loadScores() {
+    try {
+      const raw = localStorage.getItem(STORAGE_SCORES);
+      if (!raw) return [];
+      const arr = JSON.parse(raw);
+      return Array.isArray(arr) ? arr : [];
+    } catch (_) { return []; }
+  }
+  function saveScores(list) {
+    try { localStorage.setItem(STORAGE_SCORES, JSON.stringify(list || [])); } catch (_) { /* ignore */ }
+  }
+  function compareScores(a, b) {
+    // Sort: completed desc, accuracy desc, wpm desc, earlier ts asc
+    if ((b.completed|0) !== (a.completed|0)) return (b.completed|0) - (a.completed|0);
+    const ba = Number(b.accuracy||0) - Number(a.accuracy||0);
+    if (ba !== 0) return ba;
+    const bw = Number(b.wpm||0) - Number(a.wpm||0);
+    if (bw !== 0) return bw;
+    return Number(a.ts||0) - Number(b.ts||0);
+  }
+  function renderHighscores() {
+    const sets = [
+      [els.hs1, els.hs2, els.hs3],
+      [els.hsInline1, els.hsInline2, els.hsInline3],
+    ];
+    const list = loadScores().slice().sort(compareScores).slice(0, 3);
+    sets.forEach(nodes => {
+      if (!nodes || !nodes[0]) return;
+      nodes.forEach((n, i) => {
+        if (!n) return;
+        const s = list[i];
+        if (s) {
+          const name = (s.name || '名無しさん') + '';
+          const acc = (Number(s.accuracy)||0).toFixed(1) + '%';
+          n.textContent = `${i+1}. ${name} — ${s.completed}語, ${acc}`;
+        } else {
+          n.textContent = '—';
+        }
+      });
+    });
   }
 
   function updateSettingsUI() {
@@ -437,7 +588,30 @@
     els.rAccuracy.textContent = acc.toFixed(1) + '%';
     els.rWpm.textContent = wpm.toFixed(1);
     els.rBest.textContent = String(best);
+    // Update highscores
+    try {
+      const record = {
+        name: '',
+        completed: game.stats.completed|0,
+        accuracy: Number(acc.toFixed(1)),
+        wpm: Number(wpm.toFixed(1)),
+        duration: game.duration|0,
+        ts: Date.now(),
+      };
+      const list = loadScores();
+      list.push(record);
+      list.sort(compareScores);
+      const rank = list.indexOf(record);
+      if (rank > -1 && rank < 3) {
+        const nm = (window.prompt('上位3に入りました！お名前を入力してください（20文字まで）', '') || '').trim().slice(0, 20);
+        record.name = nm || '名無しさん';
+      }
+      saveScores(list.slice(0, 50));
+    } catch (_) { /* ignore */ }
+    renderHighscores();
     els.resultDialog.showModal();
+    // Launch confetti effect after dialog is visible
+    confettiBurst({ duration: 2200, count: 180 });
   }
 
   function handleKey(e) {
@@ -646,9 +820,11 @@
     updateSettingsUI();
     await loadWords();
     bindUI();
+    initFx();
     els.word.innerHTML = '<div class="label">日本語の表記</div><div class="reading">ローマ字で入力（Enterで開始）</div>';
     els.timerBar.style.width = '100%';
     els.timeLabel.textContent = (settings.durationSeconds || 15).toFixed(1) + 's';
+    renderHighscores();
   }
 
   init();

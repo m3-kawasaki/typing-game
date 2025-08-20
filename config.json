@@ -1,8 +1,7 @@
 {
-  "durationSeconds": 15,
+  "durationSeconds": 30,
   "caseSensitive": true,
   "mistakeMode": "strict",
   "sound": { "enabled": true, "volume": 0.3 },
   "pauseOnBlur": true
 }
-

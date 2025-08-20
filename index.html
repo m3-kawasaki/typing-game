@@ -17,7 +17,7 @@
 
     <div class="timer">
       <div id="timerBar" class="timer-bar"></div>
-      <div id="timeLabel" class="timer-label" aria-live="polite">15.0s</div>
+      <div id="timeLabel" class="timer-label" aria-live="polite">30.0s</div>
     </div>
 
     <main class="play-area">
@@ -35,6 +35,15 @@
         <button id="skipBtn" title="この単語をスキップ">スキップ</button>
       </div>
     </footer>
+
+    <section class="leaderboard" aria-live="polite">
+      <div class="lb-title">上位スコア</div>
+      <ol class="highscores-list">
+        <li id="hsInline1">—</li>
+        <li id="hsInline2">—</li>
+        <li id="hsInline3">—</li>
+      </ol>
+    </section>
 
     <dialog id="settingsDialog">
       <form method="dialog" id="settingsForm">
@@ -93,6 +102,15 @@
           <div>WPM: <span id="rWpm">0.0</span></div>
           <div>自己ベスト: <span id="rBest">0</span></div>
         </div>
+        <hr />
+        <div class="highscores">
+          <h3>上位スコア</h3>
+          <ol id="highscoresList" class="highscores-list">
+            <li id="hs1">—</li>
+            <li id="hs2">—</li>
+            <li id="hs3">—</li>
+          </ol>
+        </div>
         <menu>
           <button id="playAgain" class="primary">もう一度</button>
           <button id="openImportFromResult">単語をインポート</button>
@@ -102,6 +120,8 @@
     </dialog>
 
     <input type="file" id="hiddenImport" accept="text/plain" hidden />
+
+    <canvas id="fxCanvas" class="fx-canvas" aria-hidden="true"></canvas>
 
     <script src="main.js"></script>
   </body>
